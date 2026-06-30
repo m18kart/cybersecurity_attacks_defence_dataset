@@ -39,10 +39,10 @@ print("✅ Environment ready.")
 
 
 # ── Load Datasets ─────────────────────────────────────────────────────────────
-otx     = pd.read_csv('1_otx_threat_intel.csv')
-cve     = pd.read_csv('2_cve_vulnerabilities.csv')
-domains = pd.read_csv('3_malicious_domains.csv')
-ips     = pd.read_csv('4_malicious_ips.csv')
+otx     = pd.read_csv('../data/raw/1_otx_threat_intel.csv')
+cve     = pd.read_csv('../data/raw/2_cve_vulnerabilities.csv')
+domains = pd.read_csv('../data/raw/3_malicious_domains.csv')
+ips     = pd.read_csv('../data/raw/4_malicious_ips.csv')
 
 # ── Parse timestamps ──────────────────────────────────────────────────────────
 otx['Created']   = pd.to_datetime(otx['Created'],   format='ISO8601')
@@ -1093,6 +1093,6 @@ ax5.set_title('Top ATT&CK Techniques', fontweight='bold')
 ax5.set_xlabel('Frequency', fontsize=9)
 ax5.tick_params(axis='y', labelsize=8)
 
-plt.savefig('executive_dashboard.png', dpi=150, bbox_inches='tight')
+plt.savefig('../reports/executive_dashboard.png', dpi=150, bbox_inches='tight')
 plt.show()
 print("✅ Executive dashboard rendered.")
