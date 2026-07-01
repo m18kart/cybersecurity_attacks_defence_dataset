@@ -47,6 +47,14 @@ def train_ip():
 
         model.save(f"{MODEL_DIR}/ip_anomaly.joblib")
 
+        # ── permutation feature importance ────────────────────────────────
+        fi = model.feature_importance(features)
+        fi_path = f"{MODEL_DIR}/ip_feature_importance.csv"
+        fi.to_csv(fi_path, index=False)
+        mlflow.log_artifact(fi_path)
+        print("\n  Feature importance (permutation ROC-AUC drop):")
+        print(fi.to_string(index=False))
+
         print(f"ROC-AUC: {metrics['roc_auc']:.4f}  |  "
               f"PR-AUC: {metrics['pr_auc']:.4f}  |  "
               f"Top-{metrics['k']} Precision: {metrics['top_k_precision']:.4f}")
@@ -176,8 +184,17 @@ def train_attack():
         mlflow.log_metric("hamming_loss", metrics["hamming_loss"])
         mlflow.log_param("n_techniques", len(metrics["techniques"]))
         mlflow.log_param("model_type",   "xgboost_multilabel_tfidf")
+
+        # ── SHAP per-technique token ranking ──────────────────────────────
+        shap_summary = tagger.shap_summary(otx, top_n=8)
+        shap_path    = f"{MODEL_DIR}/attack_tagger_shap_summary.csv"
+        shap_summary.to_csv(shap_path, index=False)
+        mlflow.log_artifact(shap_path)
+        print("\n  SHAP token summary per technique:")
+        print(shap_summary.to_string(index=False))
+
         tagger.save(f"{MODEL_DIR}/attack_tagger.joblib")
-        print(f"Macro F1: {metrics['macro_f1']:.4f}  |  "
+        print(f"\nMacro F1: {metrics['macro_f1']:.4f}  |  "
               f"Hamming loss: {metrics['hamming_loss']:.4f}")
         print("Per-label F1:")
         for tech, f1 in metrics["per_label_f1"].items():
