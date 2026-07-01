@@ -71,6 +71,10 @@ def train_ransomware(tune: bool = False):
     print("CV ROC-AUC (structured features only):")
     print(f"  {model.cv_score(features)}")
 
+    print("\nAlgorithm comparison (TF-IDF + structured, same split):")
+    comparison = model.compare_algorithms(features)
+    print(comparison.to_string(index=False))
+
     if tune:
         print("Running RandomizedSearch (n_iter=40, scoring=PR-AUC)...")
         tune_metrics = model.tune(features, n_iter=40)
@@ -86,6 +90,11 @@ def train_ransomware(tune: bool = False):
             mlflow.log_metric("tune_pr_auc_cv", tune_metrics["best_pr_auc_cv"])
             mlflow.log_params({f"best_{k}": v for k, v in tune_metrics["best_params"].items()})
 
+        # ── algorithm comparison CSV ──────────────────────────────────────
+        comp_path = f"{MODEL_DIR}/ransomware_algo_comparison.csv"
+        comparison.to_csv(comp_path, index=False)
+        mlflow.log_artifact(comp_path)
+
         # ── SHAP ranking — saved as CSV artifact ──────────────────────────
         shap_df = model.shap_ranking(features, top_n=15)
         shap_path = f"{MODEL_DIR}/ransomware_shap_ranking.csv"
@@ -99,7 +108,60 @@ def train_ransomware(tune: bool = False):
         print("  (PR-AUC is the primary metric — accuracy misleads under imbalance)")
 
 
-# ── Model 3: ATT&CK Technique Tagger ─────────────────────────────────────────
+# ── Model 4: OTX Pulse Clustering ────────────────────────────────────────────
+
+def train_clustering(k: int = 0):
+    """
+    k=0 means auto-select: run elbow+silhouette sweep first, then fit best k.
+    Pass k=N to skip the sweep and fit directly.
+    """
+    from src.models.otx_clusterer import OTXClusterer
+
+    print("\n── OTX Pulse Clustering (K-Means + LSA + TF-IDF) ───────────────")
+    otx = pd.read_csv(f"{DATA_DIR}/1_otx_threat_intel.csv")
+    print(f"  Corpus: {len(otx)} pulses")
+
+    clusterer = OTXClusterer()
+
+    if k == 0:
+        print(f"  Sweeping k=2..15 (elbow + silhouette):")
+        sweep = clusterer.find_optimal_k(otx)
+        best_k = int(sweep.loc[sweep["silhouette"].idxmax(), "k"])
+        print(f"\n  → Optimal k by silhouette: {best_k}")
+        sweep_path = f"{MODEL_DIR}/clustering_k_sweep.csv"
+        sweep.to_csv(sweep_path, index=False)
+    else:
+        best_k = k
+
+    print(f"\n  Fitting K-Means with k={best_k}...")
+    with mlflow.start_run(run_name="otx_pulse_clustering"):
+        metrics = clusterer.fit(otx, k=best_k)
+
+        mlflow.log_metric("silhouette",  metrics["silhouette"])
+        mlflow.log_param("k",            metrics["k"])
+        mlflow.log_param("model_type",   "kmeans_lsa_tfidf")
+        mlflow.log_param("tfidf_ngrams", "(1,2)")
+
+        # save cluster assignments CSV
+        cluster_df = metrics["df"][["Pulse_ID", "Title", "cluster", "pca_x", "pca_y",
+                                     "Malware_Families", "Industries", "Attack_IDs"]]
+        cluster_path = f"{MODEL_DIR}/otx_cluster_assignments.csv"
+        cluster_df.to_csv(cluster_path, index=False)
+        mlflow.log_artifact(cluster_path)
+
+        clusterer.save(f"{MODEL_DIR}/otx_clusterer.joblib")
+
+        print(f"\n  Silhouette score: {metrics['silhouette']:.4f}")
+        print(f"  Cluster sizes: {metrics['cluster_sizes']}")
+        print("\n  Cluster profiles:")
+        for p in metrics["profiles"]:
+            print(f"\n  Cluster {p['cluster']} (n={p['size']})")
+            print(f"    Top terms:      {', '.join(p['top_terms'][:6])}")
+            print(f"    Top malware:    {', '.join(p['top_malware']) or 'Unknown'}")
+            print(f"    Top industries: {', '.join(p['top_industries']) or 'Unknown'}")
+            print(f"    Sample titles:")
+            for t in p["sample_titles"]:
+                print(f"      · {t[:80]}")
 
 def train_attack():
     from src.models.attack_tagger import AttackTechniqueTagger
@@ -128,12 +190,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--model",
-        choices=["ip", "ransomware", "attack", "all"],
+        choices=["ip", "ransomware", "attack", "cluster", "all"],
         default="all",
     )
     parser.add_argument("--tune", action="store_true")
+    parser.add_argument("--k", type=int, default=0,
+                        help="Number of clusters (0 = auto via silhouette sweep)")
     args = parser.parse_args()
 
     if args.model in ("ip",         "all"): train_ip()
     if args.model in ("ransomware", "all"): train_ransomware(tune=args.tune)
     if args.model in ("attack",     "all"): train_attack()
+    if args.model in ("cluster",    "all"): train_clustering(k=args.k)
