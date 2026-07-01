@@ -1,0 +1,16 @@
+feature,mean_abs_shap
+ios,0.25424242
+server,0.19776678
+crafted,0.16375728
+contains,0.109522924
+attacker,0.09954419
+unauthenticated,0.09688852
+arbitrary,0.09602345
+allows,0.080566175
+remote,0.077158645
+execute,0.07616381
+contain,0.07234495
+execution,0.062910624
+authentication,0.061810166
+allow,0.060940042
+devices,0.059120923
