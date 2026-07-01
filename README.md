@@ -22,7 +22,61 @@ interpreted models across three distinct ML paradigms.
 
 ## Key findings
 
-### CVE Ransomware-Risk Predictor — SHAP analysis
+### OTX Pulse Clustering — K-Means discovered attack campaign archetypes
+
+K-Means (k=14, TF-IDF bigrams + LSA) on 2,365 OTX pulses **recovered
+meaningful attack campaign taxonomies without any label supervision**.
+Cluster validity was confirmed post-hoc by checking alignment with
+`Malware_Families` — a field not used during training.
+
+| Cluster | Size | Archetype | Dominant Malware |
+|---------|------|-----------|-----------------|
+| 0 | 160 | Multi-stage RAT delivery | XWorm, AsyncRAT, Remcos RAT |
+| 1 | 135 | 2025 CVE exploitation | Cobalt Strike, VShell, XMRig |
+| 2 | 241 | Phishing infrastructure | Rhadamanthys, Tycoon2FA, ValleyRAT |
+| 3 | 158 | Social engineering / ClickFix | AsyncRAT, NetSupport RAT |
+| 4 | 123 | 2023–24 CVE exploitation | Cobalt Strike, Akira, Mirai |
+| 5 | 86 | **DPRK / North Korea ops** | BeaverTail, InvisibleFerret, OtterCookie |
+| 6 | 180 | Ransomware / RaaS | LockBit, SystemBC |
+| 7 | 67 | IoT botnets / DDoS | Mirai, BADBOX, XMRig |
+| 8 | 104 | Supply chain (npm/PyPI) | Shai-Hulud, plain-crypto-js |
+| 9 | 111 | Android banking trojans | SparkCat, NGate, SpyNote |
+| 10 | 285 | APT espionage | PlugX, POISONPLUG.SHADOW |
+| 11 | 82 | Spear phishing / APT | ROKRAT, XenoRAT, CozyCar |
+| 12 | 473 | General malware → *sub-clustered* | XMRig, Cobalt Strike, AsyncRAT |
+| 13 | 160 | Infostealer / MaaS | Lumma Stealer, Vidar, StealC |
+
+**Cluster 12 sub-clustered (k=8, silhouette-selected):**
+
+| Sub-cluster | Size | Archetype | Dominant Malware |
+|-------------|------|-----------|-----------------|
+| 12.0 | 49 | Web skimming / Magecart | LummaC2, Latrodectus |
+| 12.1 | 22 | Malicious browser extensions | VoidStealer, SpyMax |
+| 12.2 | 57 | RAT infrastructure / access brokers | AsyncRAT, VenomRAT, Remcos |
+| 12.3 | 30 | Cloud cryptomining (Docker/K8s) | XMRig, GSocket, Sliver |
+| 12.4 | 140 | General C2 infrastructure *(residual)* | Cobalt Strike, Latrodectus |
+| 12.5 | 96 | Loaders / malware staging | Zloader, LummaC2 |
+| 12.6 | 45 | **Linux rootkits + AI-targeted malware** | VoidLink, BCObserver |
+| 12.7 | 34 | SEO poisoning | BadIIS, GotoHTTP |
+
+**Total: 21 meaningful attack archetypes discovered without labels.**
+
+**Notable findings:**
+- **Cluster 5 (DPRK)** is the tightest cluster — nation-state actor campaigns
+  have sufficiently distinct vocabulary that K-Means isolated them completely
+  without country or actor labels.
+- **Clusters 1 and 4** separated 2023–24 vs 2025 CVE campaigns purely on
+  temporal vocabulary (`cve 2024` vs `cve 2025`), even though the attack
+  pattern is identical. Demonstrates temporal drift in threat intel corpus.
+- **Sub-cluster 12.6 (Linux + AI + rootkits)** reflects an emerging 2025 threat
+  pattern not visible in older datasets — AI infrastructure being targeted
+  alongside traditional kernel-level persistence.
+- **Sub-cluster 12.7 (SEO poisoning)** cleanly isolated from just 34 pulses,
+  confirming BadIIS as the dominant indicator.
+- Malware families were **not used as input** — their alignment with discovered
+  clusters validates the unsupervised approach.
+
+
 SHAP revealed that **all top-15 predictive features are TF-IDF text tokens**,
 not structured metadata (vendor, CWE class, remediation window):
 
