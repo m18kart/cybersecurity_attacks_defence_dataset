@@ -1,0 +1,6 @@
+feature,roc_auc_drop
+is_tor,0.1647
+ASN_filled,0.0941
+country_risk_score,0.0326
+owner_freq,0.015
+Times_Submitted,0.0

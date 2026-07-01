@@ -18,9 +18,7 @@ import joblib
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import IsolationForest
-from sklearn.metrics import (
-    average_precision_score, roc_auc_score, roc_curve,
-)
+from sklearn.metrics import average_precision_score, roc_auc_score
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 
@@ -109,6 +107,37 @@ class IPAnomalyDetector:
             "anomaly_score": round(score, 4),
             "verdict":       "Suspicious" if score > 0 else "Normal",
         }
+
+    # ── feature importance via permutation ───────────────────────────────
+
+    def feature_importance(self, features: pd.DataFrame) -> pd.DataFrame:
+        """
+        Isolation Forest has no native feature importances.
+        Uses permutation importance: shuffle one feature at a time,
+        measure ROC-AUC drop vs malware ground truth.
+        Larger drop = feature more important for anomaly detection.
+        """
+        _, X_all, y_all = split_by_label(features)
+        y_binary  = (y_all == "malware").astype(int).to_numpy()
+        X_arr     = X_all.to_numpy().copy()
+
+        base_scores = -self.pipe.decision_function(X_all)
+        base_auc    = roc_auc_score(y_binary, base_scores)
+
+        rows = []
+        for i, feat in enumerate(NUMERIC):
+            X_perm       = X_arr.copy()
+            X_perm[:, i] = np.random.RandomState(42).permutation(X_perm[:, i])
+            perm_df      = pd.DataFrame(X_perm, columns=NUMERIC)
+            perm_auc     = roc_auc_score(y_binary, -self.pipe.decision_function(perm_df))
+            rows.append({
+                "feature":      feat,
+                "roc_auc_drop": round(base_auc - perm_auc, 4),
+            })
+
+        return (pd.DataFrame(rows)
+                  .sort_values("roc_auc_drop", ascending=False)
+                  .reset_index(drop=True))
 
     def save(self, path: str = "models/ip_anomaly.joblib"):
         joblib.dump(self, path)
