@@ -33,3 +33,6 @@ data/processed/
 
 # macOS
 .DS_Store
+mlflow.db
+mlruns/
+*.joblib
