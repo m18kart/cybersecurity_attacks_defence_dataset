@@ -189,9 +189,20 @@ models/
 ```bash
 pip install -r requirements.txt
 
-python -m src.train --model all                    # train all 3 models
-python -m src.train --model ransomware --tune      # with hyperparameter search
-streamlit run app/dashboard.py                     # live scoring UI
+# 1. EDA — understand the data before modeling
+python cyber_threat.py
+
+# 2. Train all models (baseline)
+python -m src.train --model all
+
+# 3. Tune ransomware model (optional — overwrites step 2 result)
+python -m src.train --model ransomware --tune
+
+# 4. Generate result visualizations → reports/figures/
+python -m src.visualize
+
+# 5. Live scoring dashboard
+streamlit run app/dashboard.py
 ```
 
 ---
